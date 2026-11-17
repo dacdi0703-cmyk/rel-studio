@@ -1,0 +1,18 @@
+{
+  "name": "R'EL Studio — REngineLUAU",
+  "short_name": "R'EL Studio",
+  "description": "Offline game creation studio and public world browser",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101823",
+  "theme_color": "#457acc",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
