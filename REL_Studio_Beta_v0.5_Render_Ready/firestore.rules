@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+   function signedIn() { return request.auth != null; }
+   function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+   function isValidRoom(roomId) {
+     return signedIn() && roomId.matches('^' + request.auth.uid + '_[12]$');
+   }
+   function roomEnabled(roomId) {
+     return exists(/databases/$(database)/documents/rel_rooms/$(roomId))
+       && get(/databases/$(database)/documents/rel_rooms/$(roomId)).data.enabled == true;
+   }
+   // IMPORTANT: premium/admin rights come from trusted Firebase Admin SDK claims,
+   // not from a client field, username or bank receipt image.
+   match /profiles/{uid} {
+     allow get: if isSelf(uid);
+     allow list: if false;
+     allow create: if isSelf(uid)
+       && request.resource.data.keys().hasOnly(['uid','handle','plan','createdAt'])
+       && request.resource.data.uid == uid
+       && request.resource.data.plan == 'free'
+       && request.resource.data.handle is string
+       && request.resource.data.handle.size() <= 20;
+     allow update: if isSelf(uid)
+       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['handle'])
+       && request.resource.data.uid == uid;
+     allow delete: if false;
+   }
+   match /usernames/{handleKey} {
+     allow get: if signedIn();
+     allow list: if false;
+     allow create: if signedIn()
+       && handleKey.matches('^[a-z0-9_]{3,20}$')
+       && handleKey != 'pannau75'
+       && request.resource.data.keys().hasOnly(['uid','handle'])
+       && request.resource.data.uid == request.auth.uid
+       && request.resource.data.handle is string
+       && request.resource.data.handle.size() <= 20;
+     allow update, delete: if false;
+   }
+   // Exactly one public game document per account, ID = owner's uid.
+   match /rel_worlds/{uid} {
+     allow get: if resource.data.isPublic == true || isSelf(uid);
+     allow list: if resource.data.isPublic == true;
+     allow create, update: if isSelf(uid)
+       && request.resource.data.keys().hasOnly(['ownerUid','title','authorAlias','projectPayload','isPublic','mode','updatedAt'])
+       && request.resource.data.ownerUid == uid
+       && request.resource.data.title is string
+       && request.resource.data.title.size() <= 120
+       && request.resource.data.authorAlias is string
+       && request.resource.data.authorAlias.size() <= 40
+       && request.resource.data.projectPayload is string
+       && request.resource.data.projectPayload.size() <= 800000
+       && request.resource.data.mode in ['2d','3d']
+       && request.resource.data.isPublic is bool;
+     allow delete: if isSelf(uid);
+   }
+   // Room ID = <owner uid>_1 or <owner uid>_2.
+   // A 3rd room for the same owner is denied by the ID rule.
+   match /rel_rooms/{roomId} {
+     allow get: if signedIn();
+     allow list: if false;
+     allow create, update: if isValidRoom(roomId)
+       && request.resource.data.keys().hasOnly(['ownerUid','slot','enabled','gameUid','updatedAt'])
+       && request.resource.data.ownerUid == request.auth.uid
+       && request.resource.data.gameUid == request.auth.uid
+       && request.resource.data.slot in [1,2]
+       && ((roomId == request.auth.uid + '_1' && request.resource.data.slot == 1)
+            || (roomId == request.auth.uid + '_2' && request.resource.data.slot == 2))
+       && request.resource.data.enabled is bool;
+     allow delete: if isValidRoom(roomId);
+     match /players/{playerUid} {
+       allow get, list: if signedIn() && roomEnabled(roomId);
+       allow create, update: if isSelf(playerUid) && roomEnabled(roomId)
+         && request.resource.data.keys().hasOnly(['uid','nick','at'])
+         && request.resource.data.uid == playerUid
+         && request.resource.data.nick is string
+         && request.resource.data.nick.size() <= 40;
+       allow delete: if isSelf(playerUid);
+     }
+     match /messages/{messageId} {
+       allow get, list: if signedIn() && roomEnabled(roomId);
+       allow create: if signedIn() && roomEnabled(roomId)
+         && request.resource.data.keys().hasOnly(['uid','nick','text','at'])
+         && request.resource.data.uid == request.auth.uid
+         && request.resource.data.nick is string
+         && request.resource.data.nick.size() <= 40
+         && request.resource.data.text is string
+         && request.resource.data.text.size() <= 240;
+       allow update, delete: if false;
+     }
+   }
+   match /{document=**} { allow read, write: if false; }
+ }
+}
