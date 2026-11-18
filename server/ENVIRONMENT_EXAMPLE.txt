@@ -1,0 +1,7 @@
+# Chỉ là tên các biến môi trường. ĐỪNG đưa giá trị thực lên GitHub.
+REL_SESSION_SECRET=PUT_YOUR_PRIVATE_RANDOM_32_PLUS_CHARACTER_SECRET_HERE
+REL_ADMIN_SETUP_KEY=PUT_YOUR_TEMPORARY_PRIVATE_24_PLUS_CHARACTER_SETUP_KEY_HERE
+REL_ADMIN_USERNAME=Pannau75
+# DATABASE_URL=postgresql://...  (tùy chọn; không có thì lưu JSON tạm)
+# DATA_FILE=/path/to/rel-data.json  (đối với ổ đĩa bền vững được gắn)
+# PORT=3000  (Render tự cung cấp, không cần cấu hình)
